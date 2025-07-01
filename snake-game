@@ -1,0 +1,174 @@
+import pygame
+import random
+
+pygame.init()
+
+# Screen setup
+WIDTH, HEIGHT = 800, 600
+screen = pygame.display.set_mode((WIDTH, HEIGHT))
+pygame.display.set_caption("🐍 Classic Snake Game")
+
+# Colors
+BLACK = (0, 0, 0)
+GREEN = (0, 255, 0)
+RED = (255, 50, 50)
+WHITE = (255, 255, 255)
+YELLOW = (255, 255, 0)
+
+# Fonts and clock
+clock = pygame.time.Clock()
+font = pygame.font.SysFont("comicsansms", 30)
+big_font = pygame.font.SysFont("comicsansms", 45)
+
+SEGMENT_SIZE = 20
+
+class Snake:
+    def __init__(self, length=5):
+        self.length = length
+        self.positions = [[WIDTH // 2, HEIGHT // 2]]
+        self.direction = pygame.Vector2(1, 0)
+        self.speed = SEGMENT_SIZE
+        for _ in range(self.length - 1):
+            x, y = self.positions[-1]
+            self.positions.append([x - SEGMENT_SIZE, y])  # build tail left
+
+    def update(self):
+        head_x, head_y = self.positions[0]
+        move_x = self.direction.x * self.speed
+        move_y = self.direction.y * self.speed
+        new_head = [(head_x + move_x) % WIDTH, (head_y + move_y) % HEIGHT]
+        self.positions = [new_head] + self.positions[:-1]
+
+    def grow(self):
+        self.positions.append(self.positions[-1][:])
+        self.length += 1
+
+    def draw(self, surface):
+        for pos in self.positions:
+            pygame.draw.rect(surface, GREEN, (*pos, SEGMENT_SIZE, SEGMENT_SIZE))
+
+    def get_head_position(self):
+        return self.positions[0]
+
+def spawn_food():
+    x = random.randint(0, (WIDTH - SEGMENT_SIZE) // SEGMENT_SIZE) * SEGMENT_SIZE
+    y = random.randint(0, (HEIGHT - SEGMENT_SIZE) // SEGMENT_SIZE) * SEGMENT_SIZE
+    return [x, y]
+
+def draw_text(text, size, color, x, y, center=True):
+    font_obj = pygame.font.SysFont("comicsansms", size)
+    label = font_obj.render(text, True, color)
+    rect = label.get_rect()
+    if center:
+        rect.center = (x, y)
+    else:
+        rect.topleft = (x, y)
+    screen.blit(label, rect)
+
+def start_menu():
+    while True:
+        screen.fill(BLACK)
+        draw_text("Classic Snake Game", 50, YELLOW, WIDTH // 2, HEIGHT // 3)
+        draw_text("Press ENTER to Start", 30, WHITE, WIDTH // 2, HEIGHT // 2)
+        draw_text("Press ESC to Exit", 30, RED, WIDTH // 2, HEIGHT // 2 + 50)
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit(); quit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    return
+                elif event.key == pygame.K_ESCAPE:
+                    pygame.quit(); quit()
+
+def game_over_screen(score):
+    while True:
+        screen.fill(BLACK)
+        draw_text("Game Over", 50, RED, WIDTH // 2, HEIGHT // 3)
+        draw_text(f"Score: {score}", 35, WHITE, WIDTH // 2, HEIGHT // 2 - 30)
+        draw_text("Press R to Restart", 30, WHITE, WIDTH // 2, HEIGHT // 2 + 30)
+        draw_text("Press ESC to Exit", 30, RED, WIDTH // 2, HEIGHT // 2 + 70)
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit(); quit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_r:
+                    return
+                elif event.key == pygame.K_ESCAPE:
+                    pygame.quit(); quit()
+
+def run_game():
+    snake = Snake()
+    food = spawn_food()
+    score = 0
+    level = 1
+    paused = False
+
+    while True:
+        screen.fill(BLACK)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit(); quit()
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_LEFT and snake.direction != pygame.Vector2(1, 0):
+                    snake.direction = pygame.Vector2(-1, 0)
+                elif event.key == pygame.K_RIGHT and snake.direction != pygame.Vector2(-1, 0):
+                    snake.direction = pygame.Vector2(1, 0)
+                elif event.key == pygame.K_UP and snake.direction != pygame.Vector2(0, 1):
+                    snake.direction = pygame.Vector2(0, -1)
+                elif event.key == pygame.K_DOWN and snake.direction != pygame.Vector2(0, -1):
+                    snake.direction = pygame.Vector2(0, 1)
+                elif event.key == pygame.K_p:
+                    paused = not paused
+                elif event.key == pygame.K_r:
+                    return  # Restart the game immediately
+                elif event.key == pygame.K_ESCAPE:
+                    pygame.quit(); quit()
+
+        if paused:
+            draw_text("Paused", 50, YELLOW, WIDTH // 2, HEIGHT // 2)
+            pygame.display.flip()
+            clock.tick(10)
+            continue
+
+        snake.update()
+
+        # Check if food eaten
+        if snake.get_head_position() == food:
+            snake.grow()
+            food = spawn_food()
+            score += 1
+            if score % 5 == 0:
+                level += 1
+
+        # Check self-collision
+        head = snake.get_head_position()
+        for segment in snake.positions[1:]:
+            if head == segment:
+                game_over_screen(score)
+                return
+
+        # Draw food
+        pygame.draw.rect(screen, RED, (*food, SEGMENT_SIZE, SEGMENT_SIZE))
+
+        # Draw snake
+        snake.draw(screen)
+
+        # Draw score and level
+        draw_text(f"Score: {score}  Level: {level}", 25, WHITE, 10, 10, center=False)
+
+        pygame.display.flip()
+        clock.tick(10 + level * 2)
+
+def game():
+    while True:
+        start_menu()
+        while True:
+            run_game()
+
+# Start the game
+game()
